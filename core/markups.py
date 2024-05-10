@@ -9,7 +9,7 @@ choose_service_keys = [
                           callback_data='china_start')]]
 
 finish_keys = [
-    [InlineKeyboardButton(text='Отправить',
+    [InlineKeyboardButton(text='Оставить заявку 🚀',
                           callback_data='finish')]]
 
 choose_service_markup = InlineKeyboardMarkup(inline_keyboard=choose_service_keys)

@@ -14,15 +14,14 @@ bx = Bitrix(webhook=BITRIX_WEBHOOK)
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await message.answer(
-        text='Команда FulFilmer приветствует Вас!\nВы находитесь в боте оформления запроса на сотрудничество с нашей '
-             'компанией.\nВ начале напишите пожалуйста Ваше полное имя')
+        text='🤝Давайте познакомимся, как я могу к вам обращаться ?')
 
     await state.set_state(StatesContext.enter_name_data)
 
 
 @router.message(StatesContext.enter_name_data)
 async def handle_enter_name_data(message: Message, state: FSMContext):
-    await message.answer(text='Отлично!\nТеперь Вам необходимо выбрать интересующую услугу',
+    await message.answer(text=f'✅Отлично, {message.text}.\nВыберите направление которое вас интересует',
                          reply_markup=choose_service_markup)
     await state.update_data(name=message.text)
     await state.set_state(StatesContext.choose_service)
@@ -31,73 +30,67 @@ async def handle_enter_name_data(message: Message, state: FSMContext):
 @router.callback_query(F.data == 'fulfillment_start')
 async def callback_fulfillment_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        text="Вас интересует фулфилмент\bОставьте пожалуйста одним сообщением ваши рабочие контакты, чтобы наш "
-             "менеджер уточнил все детали")
-    await state.update_data(service='fulfillment')
+        text="✍️Укажите категорию и кол-во товара одним сообщением.")
+    await state.update_data(service='ФФ')
+    await state.set_state(StatesContext.item_count)
+
+
+@router.message(StatesContext.item_count)
+async def callback_fulfillment_start(message: Message, state: FSMContext):
+    await message.answer(
+        text="☎️ Оставьте свои контактные данные, чтобы рассчитать индивидуальное предложение.\nНаш специалист свяжется с вами в ближайшее время")
+    await state.update_data(item_count=message.text)
     await state.set_state(StatesContext.enter_contact_data_bitrix)
 
 
 @router.message(StatesContext.enter_contact_data_bitrix)
 async def callback_enter_name_data_bitrix(message: Message, state: FSMContext):
-    await message.answer(text='Все почти готово\nНажмите на кнопку "Отправить", либо напишите сообщение, если вы '
-                              'хотите что-либо уточнить сразу',
-                         reply_markup=finish_markup)
     await state.update_data(contact=message.text)
     await state.set_state(StatesContext.final)
+    await _finish(message, await state.get_data())
 
 
 @router.callback_query(F.data == 'china_start')
-async def callback_china_start(callback: CallbackQuery, state: FSMContext):
+async def callback_fulfillment_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        text="Вас интересует доставка из Китая\bОставьте пожалуйста одним сообщением ваши рабочие контакты, чтобы наш "
-             "менеджер уточнил все детали")
-    await state.update_data(service='china')
-    await state.set_state(StatesContext.enter_contact_data_china)
+        text="✍️Укажите категорию и кол-во товара одним сообщением.")
+    await state.update_data(service='китай')
+    await state.set_state(StatesContext.item_count)
+
+
+@router.message(StatesContext.item_count)
+async def callback_fulfillment_start(message: Message, state: FSMContext):
+    await message.answer(
+        text="☎️ Оставьте свои контактные данные, чтобы рассчитать индивидуальное предложение.\nНаш специалист свяжется с вами в ближайшее время")
+    await state.update_data(item_count=message.text)
+    await state.set_state(StatesContext.enter_contact_data_bitrix)
 
 
 @router.message(StatesContext.enter_contact_data_china)
 async def callback_enter_name_data_china(message: Message, state: FSMContext):
-    await message.answer(text='Все почти готово\nНажмите на кнопку "Отправить", либо напишите сообщение, если вы '
-                              'хотите что-либо уточнить сразу',
-                         reply_markup=finish_markup)
     await state.update_data(contact=message.text)
     await state.set_state(StatesContext.final)
-
-
-@router.callback_query(F.data == 'finish', StatesContext.final)
-async def callback_final(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(comment='No comment')
-    await _finish(callback.message, await state.get_data())
-    await state.set_state(StatesContext.done)
-
-
-@router.message(StatesContext.final)
-async def callback_finish(message: Message, state: FSMContext):
-    await state.update_data(comment=message.text)
     await _finish(message, await state.get_data())
-    await state.set_state(StatesContext.done)
 
 
 async def _finish(message: Message, data):
-    await message.answer(text='Все готово\nВаш запрос сформирован и отправлен\nСейчас вам будут отправлены PDF файлы '
-                              'для преварительного ознакомления\nНадеемся на благотворное сотрудничество!')
-    await message.answer_document(document=FSInputFile('data/Фулфилмент полного цикла.pdf'))
-    if data['service'] == 'fulfillment':
-        await message.answer_document(document=FSInputFile('data/Прайс.pdf'))
-    print(data)
-    await bx.call('tasks.task.add',
+    await message.answer(
+        text='✈️Заявка на расчет уже у менеджера!\nА пока вы ожидаете звонок, можете ознакомится с информацией о нашей компании')
+    await message.answer_document(document=FSInputFile(r'data/Fulfilmer – О нас.pdf'))
+    if data['service'] == 'ФФ':
+        await message.answer_document(document=FSInputFile(r'data/Fulfilmer – Прайс.pdf'))
+    await bx.call('crm.lead.add',
                   {
                       'fields': {
-                          'TITLE': f'Запрос клиента {data['name']}',
-                          'DESCRIPTION': f'Имя:\t{data['name']}\nУслуга:\t{data['service']}\nКонтакты:\t{data['contact']}\n'
-                                         f'Комментарий:\t{data['comment']}',
-                          'CREATED_BY': 1,
-                          'RESPONSIBLE_ID': 1
-                      }
+                          'TITLE': f'{data['name']} — тг-бот ({data['service']})',
+                          'NAME': data['name'],
+                          "PHONE": [{"VALUE": data['contact']}],
+                          'COMMENTS': data['item_count']}
                   })
 
 
-@router.message(F.text.lower().regexp(r'(.*прайс*.)|(.*цена*.)|(.*сколько*.)|(.*доставка*.)|(.*кита*.)|(.*фулфилмент*.)|(.*отгрузка*.)|(.*поставка*.)|(.*условия*.)|(.*услуги*.)|(.*узнать*.)|(.*можно*.)|(.*заказать*.)|(.*юан*.)|(.*поиск*.)|(.*Добрый*.)|(.*товар*.)|(.*сотрудничеств*.)'))
-async def cmd_start(message: Message, state: FSMContext):
+@router.message(F.text.lower().regexp(
+    r'(.*прайс*.)|(.*цена*.)|(.*сколько*.)|(.*доставка*.)|(.*кита*.)|(.*фулфилмент*.)|(.*отгрузка*.)|(.*поставка*.)|(.*условия*.)|(.*услуги*.)|(.*узнать*.)|(.*можно*.)|(.*заказать*.)|(.*юан*.)|(.*поиск*.)|(.*Добрый*.)|(.*товар*.)|(.*сотрудничеств*.)'))
+async def chat_reply(message: Message, state: FSMContext):
     await message.reply(
         text='Здравствуйте 👋\nНапишите мне, чтобы узнать условия и получить прайс:\n@fulfilmer_support_bot')

@@ -13,4 +13,5 @@ class StatesContext(StatesGroup):
     finish = State()
     done = State()
     final = State()
+    item_count = State()
 
